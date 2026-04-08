@@ -7,11 +7,32 @@ import math
 
 st.set_page_config(page_title="AgriMineral Pipeline", layout="wide")
 
-st.title("AgriMineral Land Analyzer")
-st.caption("Dev 1 — Data Collection + Geo-Spatial Analysis")
+st.markdown("""
+    <style>
+    .main-title {
+        font-size: 40px;
+        font-weight: 700;
+        color: #2E7D32;
+    }
+    .agent-header {
+        background-color: #2E7D32;
+        color: white;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 16px;
+        display: inline-block;
+        margin-bottom: 10px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("<div class='main-title'>🌱 AgriMineral Land Analyzer</div>", unsafe_allow_html=True)
+st.caption("AI-powered Geo-Spatial Farming Intelligence")
+
 
 # ── Step 1: City Search ──────────────────────────────────────────
-st.subheader("Step 1 — Search a city")
+st.subheader("Step 1 — Search a city or area")
 
 col1, col2 = st.columns([4, 1])
 with col1:
@@ -96,9 +117,9 @@ if selected:
     c4.metric("City", city or "—")
 
     # ── Step 4: Analyze Button ───────────────────────────────────
-    st.subheader("Step 4 — Run agents")
+    st.subheader("Step 4 — Run Geo-Spatial Agent")
     if st.button("Analyze this land", type="primary", use_container_width=True):
-        with st.spinner("Running Agent 1 — collecting data..."):
+        with st.spinner("Collecting data..."):
             try:
                 res = requests.post(
                     "http://127.0.0.1:5000/analyze",
@@ -116,16 +137,16 @@ if selected:
 
                     # ── Agent 1 Results ──────────────────────────
                     st.markdown("---")
-                    st.subheader("Agent 1 — Raw Data")
+                    st.markdown("<div class='agent-header'>🛰️ Agent 1 — Raw Data Collection</div>", unsafe_allow_html=True)
 
                     w = a1.get("weather", {}).get("current", {})
                     t = a1.get("terrain", {})
 
                     r1, r2, r3, r4 = st.columns(4)
-                    r1.metric("Temperature",  f"{w.get('temperature_2m', '—')} °C")
-                    r2.metric("Humidity",     f"{w.get('relative_humidity_2m', '—')} %")
-                    r3.metric("Wind speed",   f"{w.get('windspeed_10m', '—')} km/h")
-                    r4.metric("Precipitation",f"{w.get('precipitation', '—')} mm")
+                    r1.metric("Temperature",   f"{w.get('temperature_2m', '—')} °C")
+                    r2.metric("Humidity",      f"{w.get('relative_humidity_2m', '—')} %")
+                    r3.metric("Wind speed",    f"{w.get('windspeed_10m', '—')} km/h")
+                    r4.metric("Precipitation", f"{w.get('precipitation', '—')} mm")
 
                     r5, r6, r7, r8 = st.columns(4)
                     r5.metric("Elevation",    f"{t.get('elevation_m', '—')} m")
@@ -159,55 +180,47 @@ if selected:
                     if maps:
                         st.markdown("**Map links**")
                         ml1, ml2, ml3 = st.columns(3)
-                        ml1.link_button("OpenStreetMap", maps.get("openstreetmap", "#"), use_container_width=True)
-                        ml2.link_button("Google Maps",   maps.get("google_maps", "#"),   use_container_width=True)
-                        ml3.link_button("Satellite view",maps.get("satellite_view", "#"),use_container_width=True)
+                        ml1.link_button("OpenStreetMap",  maps.get("openstreetmap", "#"), use_container_width=True)
+                        ml2.link_button("Google Maps",    maps.get("google_maps", "#"),   use_container_width=True)
+                        ml3.link_button("Satellite view", maps.get("satellite_view", "#"),use_container_width=True)
 
                     # ── Agent 2 Results ──────────────────────────
                     st.markdown("---")
-                    st.subheader("Agent 2 — Geo-Spatial Analysis")
+                    st.markdown("<div class='agent-header'>🌍 Agent 2 — Geo-Spatial Analysis</div>", unsafe_allow_html=True)
 
-                    a2c1, a2c2, a2c3, a2c4 = st.columns(4)
-                    a2c1.metric("Climate zone",    a2.get("climate_zone", "—"))
-                    a2c2.metric("Land type",       a2.get("land_type", "—"))
-                    a2c3.metric("Season",          a2.get("current_season", "—"))
-                    a2c4.metric("Mineral hint",    a2.get("mineral_hint", "—").split("—")[0])
-
-                    st.info(f"Soil: {a2.get('soil_hint', '—')}")
-
-                    # Farming vs Mineral scores
-                    st.markdown("**Suitability scores**")
-                    sc1, sc2 = st.columns(2)
+                    a2c1, a2c2, a2c3 = st.columns(3)
+                    a2c1.metric("Climate zone", a2.get("climate_zone", "—"))
+                    a2c2.metric("Land type",    a2.get("land_type", "—"))
+                    a2c3.metric("Season",       a2.get("current_season", "—"))
 
                     farming_score = a2.get("farming_score", 0)
-                    mineral_score = a2.get("mineral_score", 0)
+                    soil_health   = a2.get("soil_health_score", 0)
 
+                    st.markdown("**Overall scores**")
+                    sc1, sc2 = st.columns(2)
                     with sc1:
-                        st.metric("Farming score", f"{farming_score} / 10")
+                        st.metric("Farming suitability", f"{farming_score} / 10")
                         st.progress(farming_score / 10)
-
                     with sc2:
-                        st.metric("Mineral score", f"{mineral_score} / 10")
-                        st.progress(mineral_score / 10)
+                        st.metric("Soil health", f"{soil_health} / 10")
+                        st.progress(soil_health / 10)
 
-                    # Verdict
-                    st.markdown("---")
-                    if farming_score > mineral_score:
-                        st.success(f"Verdict: This land is better suited for FARMING (score {farming_score} vs {mineral_score})")
-                    elif mineral_score > farming_score:
-                        st.warning(f"Verdict: This land has stronger MINERAL potential (score {mineral_score} vs {farming_score})")
+                    if farming_score >= 7:
+                        st.success(f"This land is highly suitable for farming — score {farming_score}/10")
+                    elif farming_score >= 5:
+                        st.warning(f"This land is moderately suitable — score {farming_score}/10, improvements recommended")
                     else:
-                        st.info("Verdict: Land is equally suitable for farming and mineral use — deeper analysis needed")
+                        st.error(f"This land needs significant treatment before farming — score {farming_score}/10")
 
-                    # Full JSON for teammates
+                    # ── Full JSON ────────────────────────────────
                     st.markdown("---")
-                    with st.expander("Full JSON output — share with Dev 2, 3, 4"):
+                    with st.expander("Full JSON output"):
                         st.json(result)
 
-                    # Save to session
+                    # ── Save to session ──────────────────────────
                     st.session_state["agent1_output"] = a1
                     st.session_state["agent2_output"] = a2
-                    st.success("Agents 1 + 2 complete. Data ready for Dev 2.")
+                    st.success("Analysis complete ✅")
 
             except requests.exceptions.ConnectionError:
                 st.error("Cannot reach Flask server. Make sure `python app.py` is running in another terminal.")

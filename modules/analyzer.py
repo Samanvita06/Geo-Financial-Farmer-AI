@@ -24,6 +24,7 @@ def analyze(agent1_output: dict) -> dict:
     micronutrients = estimate_micronutrients(climate_zone, land_type)
     farming_score  = calc_farming_score(temp, humidity, weekly_rain, elevation)
     soil_health    = calc_soil_health(npk, ph)
+    print("DEBUG NPK:", npk)
 
     return {
         "climate_zone":    climate_zone,
@@ -112,40 +113,40 @@ def classify_season(temp, weekly_rain):
 
 def estimate_npk(climate_zone, land_type, elevation, weekly_rain):
     """
-    Estimate NPK levels (low / medium / high)
-    based on climate, land type, elevation and rainfall
+    Return numeric NPK values (kg/ha)
     """
-    # Nitrogen
+
+    # Nitrogen (N)
     if "tropical wet" in climate_zone and weekly_rain > 20:
-        N = "medium"  # heavy rain leaches nitrogen
+        N = 50   # leached by rain
     elif "arid" in climate_zone:
-        N = "low"     # dry soils lose organic matter
+        N = 30
     elif "subtropical" in climate_zone and "plains" in land_type:
-        N = "high"    # black cotton soils are nitrogen rich
+        N = 80
     elif "mountainous" in land_type:
-        N = "low"     # thin topsoil
+        N = 25
     else:
-        N = "medium"
+        N = 60
 
-    # Phosphorus
+    # Phosphorus (P)
     if "lowland" in land_type and "tropical" in climate_zone:
-        P = "high"    # alluvial deposits rich in phosphorus
+        P = 60
     elif "arid" in climate_zone:
-        P = "medium"  # semi-arid soils retain phosphorus
+        P = 40
     elif "mountainous" in land_type or elevation > 1500:
-        P = "low"
+        P = 20
     else:
-        P = "medium"
+        P = 45
 
-    # Potassium
+    # Potassium (K)
     if "black cotton" in classify_soil(climate_zone, land_type, elevation):
-        K = "high"    # black soils are potassium rich
+        K = 80
     elif "arid" in climate_zone:
-        K = "high"    # dry soils retain potassium well
+        K = 70
     elif weekly_rain > 30:
-        K = "low"     # heavy rain leaches potassium
+        K = 30
     else:
-        K = "medium"
+        K = 50
 
     return {"N": N, "P": P, "K": K}
 
@@ -221,20 +222,27 @@ def calc_farming_score(temp, humidity, weekly_rain, elevation):
 
 
 def calc_soil_health(npk, ph):
-    """
-    Score soil health out of 10 based on NPK and pH
-    """
     score = 5.0
-    level = {"low": 0, "medium": 1, "high": 2}
 
-    score += level.get(npk["N"], 0) * 0.8
-    score += level.get(npk["P"], 0) * 0.7
-    score += level.get(npk["K"], 0) * 0.5
+    # SAFE extraction
+    N = npk.get("N") or npk.get("nitrogen") or 50
+    P = npk.get("P") or npk.get("phosphorus") or 50
+    K = npk.get("K") or npk.get("potassium") or 50
 
-    if "neutral" in ph:        score += 1.5
-    elif "slightly acidic" in ph: score += 1.0
-    elif "acidic" in ph:       score += 0.3
-    elif "alkaline" in ph:     score += 0.5
+    # numeric scoring
+    score += (N / 100) * 2
+    score += (P / 100) * 1.5
+    score += (K / 100) * 1.2
+
+    if isinstance(ph, str):
+        if "neutral" in ph:
+            score += 1.5
+        elif "slightly acidic" in ph:
+            score += 1.0
+        elif "acidic" in ph:
+            score += 0.3
+        elif "alkaline" in ph:
+            score += 0.5
 
     return round(min(max(score, 0), 10), 1)
 
