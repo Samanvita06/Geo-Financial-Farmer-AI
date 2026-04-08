@@ -1,7 +1,7 @@
 import pandas as pd
 
 # load dataset once
-df = pd.read_csv("data/soil_yield.csv")
+df = pd.read_csv("data/soil and yield.csv")
 
 def soil_agent(n, p, k, ph, soil_type):
     
