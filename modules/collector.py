@@ -1,19 +1,84 @@
+import requests
+import json
+
+def get_coordinates(city_name: str) -> dict:
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {"q": city_name, "format": "json", "limit": 1}
+    headers = {"User-Agent": "AgriMineralPipeline/1.0"}
+    res = requests.get(url, params=params, headers=headers)
+    results = res.json()
+    if not results:
+        raise ValueError(f"Location '{city_name}' not found.")
+    result = results[0]
+    return {
+        "name": result.get("display_name"),
+        "lat": float(result["lat"]),
+        "lon": float(result["lon"])
+    }
+
+def get_weather(lat: float, lon: float) -> dict:
+    url = "https://api.open-meteo.com/v1/forecast"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "current": [
+            "temperature_2m",
+            "relative_humidity_2m",
+            "precipitation",
+            "windspeed_10m",
+            "weathercode"
+        ],
+        "daily": [
+            "temperature_2m_max",
+            "temperature_2m_min",
+            "precipitation_sum"
+        ],
+        "timezone": "auto",
+        "forecast_days": 7
+    }
+    res = requests.get(url, params=params)
+    data = res.json()
+    return {
+        "current": data.get("current", {}),
+        "weekly_forecast": data.get("daily", {}),
+        "timezone": data.get("timezone", "unknown")
+    }
+
+def get_elevation(lat: float, lon: float) -> dict:
+    url = f"https://api.opentopodata.org/v1/srtm90m?locations={lat},{lon}"
+    res = requests.get(url)
+    results = res.json().get("results", [])
+    elevation = results[0].get("elevation") if results else None
+    return {
+        "elevation_m": elevation,
+        "terrain_note": classify_terrain(elevation)
+    }
+
+def classify_terrain(elevation_m) -> str:
+    if elevation_m is None:
+        return "unknown"
+    elif elevation_m < 200:
+        return "lowland / plains"
+    elif elevation_m < 600:
+        return "hilly"
+    elif elevation_m < 1500:
+        return "upland / plateau"
+    else:
+        return "mountainous"
+
+def get_map_link(lat: float, lon: float, city_name: str) -> dict:
+    return {
+        "openstreetmap": f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}&zoom=12",
+        "google_maps": f"https://www.google.com/maps/@{lat},{lon},12z",
+        "satellite_view": f"https://www.google.com/maps/@{lat},{lon},12z/data=!3m1!1e3"
+    }
+
 def collect_data(city_name: str, bounds: dict = None) -> dict:
-    """
-    city_name: e.g. "Bangalore"
-    bounds: optional dict from the map selector, like:
-      {
-        "center": {"lat": 12.97, "lon": 77.59},
-        "bounds": {"north": 12.99, "south": 12.95, "east": 77.62, "west": 77.56},
-        "area_km2": 14.5
-      }
-    """
     print(f"\n Locating '{city_name}'...")
     location = get_coordinates(city_name)
     lat = location["lat"]
     lon = location["lon"]
 
-    # If user selected a specific land region, use its center instead
     if bounds:
         lat = bounds["center"]["lat"]
         lon = bounds["center"]["lon"]
@@ -45,7 +110,6 @@ def collect_data(city_name: str, bounds: dict = None) -> dict:
 
 if __name__ == "__main__":
     city = input("Enter city name: ").strip()
-
     use_map = input("Did you select a land region from the map? (y/n): ").strip().lower()
     bounds = None
 
@@ -57,7 +121,6 @@ if __name__ == "__main__":
             if line == "":
                 break
             lines.append(line)
-        import json
         bounds = json.loads("\n".join(lines))
 
     result = collect_data(city, bounds)
