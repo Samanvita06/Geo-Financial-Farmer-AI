@@ -1,68 +1,79 @@
-# modules/yield_agent.py
+import pandas as pd
 
-def yield_agent(crops, geo_data):
+# Load dataset once
+df = pd.read_csv("data/data/soil_yield.csv")
+
+def yield_agent(recommended_crops, land_type, temp=25, humidity=50, n=60, p=45, k=50, ph=6.5):
     """
-    crops: list from soil_agent (recommended crops)
-    geo_data: output from agent1 (weather + terrain)
+    recommended_crops — list from soil_agent
+    land_type         — from analyzer (agent2)
+    temp, humidity    — from agent1 weather
+    n, p, k, ph       — from agent3 soil (dataset averages)
 
-    Returns:
-        best crop + estimated yield + confidence
+    Returns best crop, estimated yield, confidence, and all predictions.
     """
-
-    weather = geo_data.get("weather", {}).get("current", {})
-    
-    temp = weather.get("temperature_2m", 25)
-    humidity = weather.get("relative_humidity_2m", 50)
-    rainfall = weather.get("precipitation", 0)
 
     results = {}
 
-    # 🌾 Simple scoring logic (can upgrade later with ML)
-    for crop in crops:
-        score = 0
+    for crop in recommended_crops:
+        # ── Filter dataset rows matching this crop ────────────────
+        crop_df = df[df['Crop_Type'].str.lower() == crop.lower()]
 
-        # Temperature suitability
-        if crop.lower() in ["rice", "sugarcane"]:
-            if 25 <= temp <= 35:
-                score += 3
-        elif crop.lower() in ["wheat", "barley"]:
-            if 15 <= temp <= 25:
-                score += 3
-        else:
-            if 20 <= temp <= 30:
-                score += 2
+        if crop_df.empty:
+            continue
 
-        # Rainfall suitability
-        if crop.lower() == "rice":
-            if rainfall > 5:
-                score += 3
-        elif crop.lower() in ["millet", "maize"]:
-            if rainfall < 5:
-                score += 2
-        else:
-            score += 1
+        # ── Filter by current conditions ──────────────────────────
+        filtered = crop_df[
+            crop_df['Temperature'].between(temp - 6, temp + 6) &
+            crop_df['Humidity'].between(humidity - 15, humidity + 15) &
+            crop_df['N'].between(n - 25, n + 25) &
+            crop_df['P'].between(p - 25, p + 25) &
+            crop_df['K'].between(k - 25, k + 25) &
+            crop_df['Soil_pH'].between(ph - 1.0, ph + 1.0)
+        ]
 
-        # Humidity suitability
-        if humidity > 60:
-            score += 2
-        else:
-            score += 1
+        # fallback: just use temp+humidity match if NPK filter too strict
+        if filtered.empty:
+            filtered = crop_df[
+                crop_df['Temperature'].between(temp - 6, temp + 6) &
+                crop_df['Humidity'].between(humidity - 15, humidity + 15)
+            ]
 
-        # Convert score → yield estimate (ton/hectare approx)
-        estimated_yield = round(1 + (score * 0.8), 2)
+        # fallback: use full crop rows
+        if filtered.empty:
+            filtered = crop_df
 
-        results[crop] = estimated_yield
+        avg_yield    = round(filtered['Crop_Yield'].mean(), 2)
+        avg_quality  = round(filtered['Soil_Quality'].mean(), 2) if 'Soil_Quality' in filtered.columns else 0
 
-    # 🏆 Best crop selection
-    best_crop = max(results, key=results.get) if results else None
-    best_yield = results.get(best_crop, 0) if best_crop else 0
+        results[crop] = {
+            "estimated_yield_t_ha": avg_yield,
+            "soil_quality":         avg_quality,
+            "data_points":          len(filtered)
+        }
 
-    # 📊 Confidence (based on score strength)
-    confidence = min(95, int((best_yield / 5) * 100)) if best_yield else 0
+    if not results:
+        return {
+            "best_crop":      "—",
+            "estimated_yield": "—",
+            "confidence":      0,
+            "all_predictions": {}
+        }
+
+    # ── Pick best crop by yield ───────────────────────────────────
+    best_crop = max(results, key=lambda c: results[c]["estimated_yield_t_ha"])
+    best_yield = results[best_crop]["estimated_yield_t_ha"]
+
+    # ── Confidence: based on data points + yield strength ─────────
+    data_pts   = results[best_crop]["data_points"]
+    confidence = min(95, round((min(data_pts, 200) / 200) * 70 + (best_yield / 140) * 30))
 
     return {
-        "best_crop": best_crop,
-        "estimated_yield": f"{best_yield} ton/hectare",
-        "confidence": confidence,
-        "all_predictions": results
+        "best_crop":       best_crop.capitalize(),
+        "estimated_yield": f"{best_yield} t/ha",
+        "confidence":      confidence,
+        "all_predictions": {
+            crop: f"{v['estimated_yield_t_ha']} t/ha"
+            for crop, v in results.items()
+        }
     }

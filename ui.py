@@ -14,6 +14,14 @@ st.markdown("""
         font-weight: 700;
         color: #2E7D32;
     }
+    .crop-card {
+        background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+        border-left: 4px solid #2E7D32;
+        padding: 12px 16px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        font-size: 14px;
+    }
     .agent-header {
         background-color: #2E7D32;
         color: white;
@@ -134,8 +142,10 @@ if selected:
                 else:
                     a1 = result.get("agent1", {})
                     a2 = result.get("agent2", {})
+                    a3 = result.get("agent3_soil", {})
+                    a4 = result.get("agent4_yield", {})
 
-                    # ── Agent 1 Results ──────────────────────────
+                    # ── Agent 1 ──────────────────────────────────
                     st.markdown("---")
                     st.markdown("<div class='agent-header'>🛰️ Agent 1 — Raw Data Collection</div>", unsafe_allow_html=True)
 
@@ -154,7 +164,6 @@ if selected:
                     r7.metric("Timezone",      a1.get("weather", {}).get("timezone", "—"))
                     r8.metric("Area selected", f"{area} km²")
 
-                    # Weekly forecast
                     forecast = a1.get("weather", {}).get("weekly_forecast", {})
                     if forecast:
                         st.markdown("**7-day forecast**")
@@ -162,7 +171,6 @@ if selected:
                         tmax = forecast.get("temperature_2m_max", [])
                         tmin = forecast.get("temperature_2m_min", [])
                         rain = forecast.get("precipitation_sum", [])
-
                         cols = st.columns(len(days)) if days else []
                         for i, col in enumerate(cols):
                             day = days[i].split("-")[-1] if i < len(days) else "—"
@@ -175,7 +183,6 @@ if selected:
                                 unsafe_allow_html=True
                             )
 
-                    # Map links
                     maps = a1.get("maps", {})
                     if maps:
                         st.markdown("**Map links**")
@@ -184,7 +191,7 @@ if selected:
                         ml2.link_button("Google Maps",    maps.get("google_maps", "#"),   use_container_width=True)
                         ml3.link_button("Satellite view", maps.get("satellite_view", "#"),use_container_width=True)
 
-                    # ── Agent 2 Results ──────────────────────────
+                    # ── Agent 2 ──────────────────────────────────
                     st.markdown("---")
                     st.markdown("<div class='agent-header'>🌍 Agent 2 — Geo-Spatial Analysis</div>", unsafe_allow_html=True)
 
@@ -206,21 +213,69 @@ if selected:
                         st.progress(soil_health / 10)
 
                     if farming_score >= 7:
-                        st.success(f"This land is highly suitable for farming — score {farming_score}/10")
+                        st.success(f"Highly suitable for farming — score {farming_score}/10")
                     elif farming_score >= 5:
-                        st.warning(f"This land is moderately suitable — score {farming_score}/10, improvements recommended")
+                        st.warning(f"Moderately suitable — score {farming_score}/10, improvements recommended")
                     else:
-                        st.error(f"This land needs significant treatment before farming — score {farming_score}/10")
+                        st.error(f"Needs significant treatment before farming — score {farming_score}/10")
 
-                    # ── Full JSON ────────────────────────────────
+                    # ── Agent 3 ──────────────────────────────────
+                    st.markdown("---")
+                    st.markdown("<div class='agent-header'>🧪 Agent 3 — Soil & Crop Recommendation</div>", unsafe_allow_html=True)
+
+                    if a3:
+                        sa1, sa2, sa3, sa4 = st.columns(4)
+                        sa1.metric("Nitrogen (N)",   f"{a3.get('n', '—')} kg/ha")
+                        sa2.metric("Phosphorus (P)", f"{a3.get('p', '—')} kg/ha")
+                        sa3.metric("Potassium (K)",  f"{a3.get('k', '—')} kg/ha")
+                        sa4.metric("Soil pH",        a3.get("ph", "—"))
+
+                        st.metric("Soil type", a3.get("soil_type", "—"))
+
+                        recommended_crops = a3.get("recommended_crops", [])
+                        if recommended_crops:
+                            st.markdown("**🌾 Recommended crops for this land**")
+                            crop_cols = st.columns(min(len(recommended_crops), 4))
+                            for i, crop in enumerate(recommended_crops):
+                                with crop_cols[i % 4]:
+                                    st.markdown(
+                                        f"<div class='crop-card'>🌿 <b>{crop.capitalize()}</b></div>",
+                                        unsafe_allow_html=True
+                                    )
+                        else:
+                            st.info("No crop recommendations available for this region.")
+                    else:
+                        st.warning("Agent 3 did not return any data.")
+
+                    # ── Agent 4 ──────────────────────────────────
+                    st.markdown("---")
+                    st.markdown("<div class='agent-header'>📈 Agent 4 — Yield Prediction</div>", unsafe_allow_html=True)
+
+                    if a4 and a4.get("best_crop", "—") != "—":
+                        y1, y2, y3 = st.columns(3)
+                        y1.metric("Best Crop",       a4.get("best_crop", "—"))
+                        y2.metric("Estimated Yield", a4.get("estimated_yield", "—"))
+                        y3.metric("Confidence",      f"{a4.get('confidence', 0)}%")
+
+                        all_preds = a4.get("all_predictions", {})
+                        if all_preds:
+                            st.markdown("**All crop yield predictions**")
+                            pred_cols = st.columns(min(len(all_preds), 4))
+                            for i, (crop, val) in enumerate(all_preds.items()):
+                                pred_cols[i % 4].metric(crop.capitalize(), val)
+                    else:
+                        st.warning("No yield predictions available for this region.")
+
+                    # ── Full JSON ─────────────────────────────────
                     st.markdown("---")
                     with st.expander("Full JSON output"):
                         st.json(result)
 
-                    # ── Save to session ──────────────────────────
                     st.session_state["agent1_output"] = a1
                     st.session_state["agent2_output"] = a2
-                    st.success("Analysis complete ✅")
+                    st.session_state["agent3_output"] = a3
+                    st.session_state["agent4_output"] = a4
+                    st.success("Full pipeline complete: Geo → Climate → Soil → Yield 🚀")
 
             except requests.exceptions.ConnectionError:
                 st.error("Cannot reach Flask server. Make sure `python app.py` is running in another terminal.")
