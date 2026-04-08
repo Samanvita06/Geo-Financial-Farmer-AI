@@ -41,5 +41,6 @@ def soil_agent(n, p, k, ph, soil_type):
     # ⚠️ fallback (super important)
     if not crops:
         crops = ["millets", "pulses"]
+    print(crops)
 
     return crops[:5]
