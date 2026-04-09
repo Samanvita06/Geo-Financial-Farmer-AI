@@ -22,7 +22,7 @@ st.markdown("""
 .insight-box { background:#f8f9fa; border-left:4px solid #1565C0; padding:10px 14px; border-radius:8px; margin-bottom:8px; font-size:14px; }
 .cross-box   { background:#f3e5f5; border-left:4px solid #7B1FA2; padding:10px 14px; border-radius:8px; margin-bottom:8px; font-size:14px; }
 .summary-box { background:linear-gradient(135deg,#1b5e20,#2e7d32); color:white; padding:20px 24px; border-radius:14px; margin-bottom:16px; }
-.dash-card   { background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:16px 20px; margin-bottom:12px; }
+.dash-card   { background:#1e1e1e;color:white; border:1px solid #e0e0e0; border-radius:12px; padding:16px 20px; margin-bottom:12px; }
 </style>
 """, unsafe_allow_html=True)
 
